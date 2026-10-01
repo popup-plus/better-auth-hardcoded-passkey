@@ -2,6 +2,8 @@
 
 A [Better Auth](https://better-auth.com) plugin for admin panels used only by you and your team. The passkey is hardcoded in your config, the same way you might hardcode an admin password. You don't need a database.
 
+Create a passkey in a shared 1Password vault so your whole team can sign in.
+
 ## Setup
 
 ```sh
@@ -73,16 +75,7 @@ const { error } = await authClient.signIn.hardcodedPasskey({ autoFill: true });
 
 If you call `signIn.hardcodedPasskey()` again, for example from a button, it cancels the pending autofill request.
 
-## Compared to `@better-auth/passkey`
-
-This plugin replaces the official passkey plugin; it doesn't sit next to it. Without a database you lose:
-
-- Adding, listing, renaming and deleting passkeys at runtime. Edit the config and redeploy instead.
-- Linking passkeys to real users who also sign in another way, such as with a password or a social login.
-- Signature-counter clone detection. Synced passkeys always report 0 anyway.
-- Plugins that store data per user, such as `admin`, `organization` or `twoFactor`. Users here exist only in the session cookie.
-
-## Several domains, several apps, one passkey
+## Share a passkey across apps
 
 A passkey is bound to a domain, the _rpID_. By default the rpID is the hostname the request came from, so each domain gets its own passkeys.
 
@@ -113,8 +106,19 @@ This uses [Related Origin Requests](https://passkeys.dev/docs/advanced/related-o
 
 - The config holds only **public** keys. The private key stays in your password manager.
 - The setup page is always open, but that's fine: it only _generates_ a key pair. A new key does nothing until someone with repo access pastes it into the config and deploys it.
-- Without a database there's no stored signature counter. Synced passkeys (1Password, iCloud, Google) always report 0 anyway. Hardware keys still work, but you lose clone detection.
+- Without a database there's no stored signature counter. This isn't a problem for synced passkeys (1Password, iCloud, Google), which typically report 0 and don't provide counter-based clone detection anyway. Hardware keys still work, but you lose their counter-based clone detection.
 - If a passkey leaks, remove it from the config and redeploy. To end all existing sessions too, rotate `BETTER_AUTH_SECRET`.
+
+## Compared to `@better-auth/passkey`
+
+This plugin replaces the official passkey plugin; it doesn't sit next to it. With no database to run or secure and no database round trips during sign-in, you get less infrastructure, a smaller attack surface and less sign-in overhead.
+
+Here's what changes:
+
+- Manage passkeys by editing the config and redeploying. There's no runtime API to add, list, rename or delete them.
+- Users sign in with the passkeys in your config. You can't link them to accounts that also use passwords or social login.
+- Hardware keys work without signature-counter clone detection. Synced passkeys typically report 0 anyway.
+- Users exist only in the session cookie, so plugins that store data per user, such as `admin`, `organization` or `twoFactor`, aren't supported.
 
 ## Options
 

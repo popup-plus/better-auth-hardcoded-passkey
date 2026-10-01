@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register passkey</title>
+  <style>
+    body {
+      font:
+        16px/1.5 system-ui,
+        sans-serif;
+      max-width: 42rem;
+      margin: 4rem auto;
+      padding: 0 1rem;
+      color-scheme: light dark;
+    }
+    pre {
+      padding: 1rem;
+      background: #8882;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+    }
+    button {
+      font: inherit;
+      padding: 0.5rem 1rem;
+    }
+  </style>
+  <h1>Register a hardcoded passkey</h1>
+  <p>
+    Save the passkey in your (shared) password manager. Then paste the snippet into the
+    <code>users</code> of your <code>hardcodedPasskey()</code> config and redeploy.
+  </p>
+  <form id="go">
+    <p>
+      <label>Name<br /><input name="name" required autocomplete="name" /></label>
+    </p>
+    <p>
+      <label>Email<br /><input name="email" type="email" required autocomplete="email" /></label>
+    </p>
+    <button>Create passkey</button>
+  </form>
+  <p id="status" role="status"></p>
+  <pre id="out" hidden></pre>
+  <button id="copy" hidden>Copy</button>
+  <script>
+    const b64 = (buf) =>
+      btoa(String.fromCharCode(...new Uint8Array(buf)))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    const unb64 = (s) =>
+      Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+    const post = async (path, body) => {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body ?? {}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || res.statusText);
+      return data;
+    };
+    const status = document.getElementById("status"),
+      out = document.getElementById("out"),
+      copy = document.getElementById("copy");
+    document.getElementById("go").onsubmit = async (event) => {
+      event.preventDefault();
+      const { name, email } = Object.fromEntries(new FormData(event.target));
+      try {
+        status.textContent = "Waiting for your password manager...";
+        const o = await post("register-options", { name, email });
+        const cred = await navigator.credentials.create({
+          publicKey: {
+            ...o,
+            challenge: unb64(o.challenge),
+            user: { ...o.user, id: unb64(o.user.id) },
+            excludeCredentials: [],
+          },
+        });
+        const r = await post("register-verify", {
+          id: cred.id,
+          rawId: b64(cred.rawId),
+          type: cred.type,
+          response: {
+            clientDataJSON: b64(cred.response.clientDataJSON),
+            attestationObject: b64(cred.response.attestationObject),
+            transports: cred.response.getTransports?.() ?? [],
+          },
+          clientExtensionResults: cred.getClientExtensionResults(),
+        });
+        out.textContent = JSON.stringify({ name, email, passkeys: [r.passkey] }, null, 2) + ",";
+        out.hidden = copy.hidden = false;
+        status.textContent =
+          "Done. This passkey works on " +
+          r.rpID +
+          (r.rpID.includes(".") ? " and its subdomains." : ".") +
+          " Already have an entry for " +
+          email +
+          "? Just add the passkey string to its passkeys.";
+      } catch (e) {
+        status.textContent = "Failed: " + e.message;
+      }
+    };
+    copy.onclick = () =>
+      navigator.clipboard.writeText(out.textContent).then(() => (copy.textContent = "Copied"));
+  </script>
+</html>

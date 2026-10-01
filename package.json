@@ -1,0 +1,70 @@
+{
+  "name": "better-auth-hardcoded-passkey",
+  "version": "0.1.0",
+  "description": "Better Auth plugin: sign in with passkeys hardcoded in your config. No database.",
+  "keywords": [
+    "admin",
+    "better-auth",
+    "passkey",
+    "webauthn"
+  ],
+  "homepage": "https://github.com/popup-plus/better-auth-hardcoded-passkey#readme",
+  "bugs": "https://github.com/popup-plus/better-auth-hardcoded-passkey/issues",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/popup-plus/better-auth-hardcoded-passkey.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./client": {
+      "types": "./dist/client.d.mts",
+      "default": "./dist/client.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint",
+    "prepublishOnly": "tsdown",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.3"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "^0.18.5",
+    "@types/node": "^26.6.3",
+    "@vitest/browser-playwright": "^5.0.2",
+    "better-auth": "^1.7.6",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "oxlint-config-presets": "^0.1.20",
+    "oxlint-tsgolint": "^7.0.2003",
+    "playwright": "^1.63.0",
+    "publint": "^0.3.24",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  },
+  "peerDependencies": {
+    "better-auth": "^1.7.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.8.1",
+      "onFail": "download"
+    }
+  }
+}

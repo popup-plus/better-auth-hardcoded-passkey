@@ -1,7 +1,7 @@
 {
   "name": "better-auth-hardcoded-passkey",
-  "version": "0.1.0",
-  "description": "Better Auth plugin: sign in with passkeys hardcoded in your config. No database.",
+  "version": "0.2.0",
+  "description": "Better Auth plugin: sign in with passkeys hardcoded in your config. No database needed.",
   "keywords": [
     "admin",
     "better-auth",

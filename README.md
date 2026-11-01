@@ -1,6 +1,6 @@
 # better-auth-hardcoded-passkey
 
-A [Better Auth](https://better-auth.com) plugin for admin panels used only by you and your team. The passkey is hardcoded in your config, the same way you might hardcode an admin password. You don't need a database.
+A [Better Auth](https://better-auth.com) plugin for admin panels used only by you and your team. The passkey is hardcoded in your config, the same way you might hardcode an admin password. You don't need a database, but it works with one too.
 
 Create a passkey in a shared 1Password vault so your whole team can sign in.
 
@@ -43,6 +43,10 @@ hardcodedPasskey({
 ```
 
 The session user is `{ id: email, name, email, image }`. You can override `id` per user.
+
+### With a database
+
+If Better Auth has a `database`, sign-in creates a normal database session, so everything that looks sessions up there keeps working: revoking sessions, `listSessions`, and plugins such as `oauth-provider`. The passkeys still come only from your config. The user is looked up by `id` if you set one, otherwise by `email`. If the user doesn't exist yet, it's created. Existing users aren't updated from the config.
 
 ## Sign in
 
@@ -107,18 +111,18 @@ This uses [Related Origin Requests](https://passkeys.dev/docs/advanced/related-o
 - The config holds only **public** keys. The private key stays in your password manager.
 - The setup page is always open, but that's fine: it only _generates_ a key pair. A new key does nothing until someone with repo access pastes it into the config and deploys it.
 - Without a database there's no stored signature counter. This isn't a problem for synced passkeys (1Password, iCloud, Google), which typically report 0 and don't provide counter-based clone detection anyway. Hardware keys still work, but you lose their counter-based clone detection.
-- If a passkey leaks, remove it from the config and redeploy. To end all existing sessions too, rotate `BETTER_AUTH_SECRET`.
+- If a passkey leaks, remove it from the config and redeploy. To end all existing sessions too, rotate `BETTER_AUTH_SECRET` (or, with a database, delete the user's sessions).
 
 ## Compared to `@better-auth/passkey`
 
-This plugin replaces the official passkey plugin; it doesn't sit next to it. With no database to run or secure and no database round trips during sign-in, you get less infrastructure, a smaller attack surface and less sign-in overhead.
+This plugin replaces the official passkey plugin; it doesn't sit next to it. Without a database, you get less infrastructure, a smaller attack surface and less sign-in overhead. With one, the passkeys still live in your config instead of in a table anyone with write access to the database can add to.
 
 Here's what changes:
 
 - Manage passkeys by editing the config and redeploying. There's no runtime API to add, list, rename or delete them.
 - Users sign in with the passkeys in your config. You can't link them to accounts that also use passwords or social login.
 - Hardware keys work without signature-counter clone detection. Synced passkeys typically report 0 anyway.
-- Users exist only in the session cookie, so plugins that store data per user, such as `admin`, `organization` or `twoFactor`, aren't supported.
+- Without a database, users exist only in the session cookie, so plugins that store data per user, such as `admin`, `organization` or `twoFactor`, aren't supported. With a database they're normal users.
 
 ## Options
 

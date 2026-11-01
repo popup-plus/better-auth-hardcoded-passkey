@@ -175,6 +175,29 @@ export const hardcodedPasskey = (options: HardcodedPasskeyOptions) => {
             throw new APIError("UNAUTHORIZED", { message: "Passkey not recognized." });
 
           const { passkeys: _, ...configured } = match.user;
+
+          // With a database, Better Auth looks sessions up there (and so do plugins such as
+          // oauth-provider), so a cookie-only session wouldn't survive. Make a real one.
+          if (ctx.context.options.database) {
+            const { internalAdapter } = ctx.context;
+            const existing = configured.id
+              ? await internalAdapter.findUserById(configured.id)
+              : (await internalAdapter.findUserByEmail(configured.email))?.user;
+            const user =
+              existing ??
+              (await internalAdapter.createUser(
+                {
+                  ...configured,
+                  image: configured.image ?? null,
+                  emailVerified: true,
+                },
+                { method: "hardcoded-passkey" },
+              ));
+            const session = await internalAdapter.createSession(user.id);
+            await setSessionCookie(ctx, { user, session });
+            return ctx.json({ user });
+          }
+
           const now = new Date();
           const user = {
             id: configured.email,

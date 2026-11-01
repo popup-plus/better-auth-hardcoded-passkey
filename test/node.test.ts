@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { isoBase64URL, isoCBOR } from "@simplewebauthn/server/helpers";
 import { betterAuth } from "better-auth";
+import { memoryAdapter } from "better-auth/adapters/memory";
 // Server-side cases a real browser cannot reach (other domains): hand-rolled software authenticator.
 import { test } from "vitest";
 import { hardcodedPasskey, type HardcodedPasskeyOptions } from "../src/index.ts";
@@ -74,10 +75,16 @@ function authenticator(rpID: string) {
   };
 }
 
-function app(baseURL: string, plugin: HardcodedPasskeyOptions, trustedOrigins: string[] = []) {
+function app(
+  baseURL: string,
+  plugin: HardcodedPasskeyOptions,
+  trustedOrigins: string[] = [],
+  db?: Record<string, Record<string, unknown>[]>,
+) {
   const auth = betterAuth({
     baseURL,
     trustedOrigins,
+    database: db && memoryAdapter(db),
     secret: "a-very-long-test-secret-that-is-random-enough-" + baseURL,
     plugins: [hardcodedPasskey(plugin)],
   });
@@ -116,10 +123,13 @@ function app(baseURL: string, plugin: HardcodedPasskeyOptions, trustedOrigins: s
     };
     return call("/hardcoded-passkey/sign-in-verify", a.get(o.challenge, origin, tamper), origin);
   };
-  const me = async () =>
-    ((await (await call("/get-session")).json()) as { user: { email: string } } | null)?.user
-      .email ?? null;
-  return { call, register, signIn, me };
+  const session = async () =>
+    (await (await call("/get-session")).json()) as {
+      user: { id: string; email: string };
+      session: { id: string };
+    } | null;
+  const me = async () => (await session())?.user.email ?? null;
+  return { call, register, signIn, me, session };
 }
 
 test("register, sign in, get session, sign out", async () => {
@@ -168,6 +178,53 @@ test("one passkey across domains and apps via shared rpID; several users", async
   const app2 = app("https://stats.example.com", { rpID: "example.com", users: [users[1]] });
   assert.equal((await app2.signIn(team)).status, 200);
   assert.equal((await app2.signIn(bart)).status, 401);
+});
+
+test("with a database: real sessions, existing users, configured ids", async () => {
+  const a = authenticator("localhost"),
+    b = authenticator("localhost");
+  const setup = app("http://localhost:3000", { users: [] });
+  const aKey = await setup.register(a, "Team", "team@example.com");
+  const bKey = await setup.register(b, "Bart", "bart@example.com");
+
+  const db: Record<string, Record<string, unknown>[]> = {
+    user: [
+      {
+        id: "existing-1",
+        name: "Team (from db)",
+        email: "team@example.com",
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+    session: [],
+    account: [],
+    verification: [],
+  };
+  const users = [
+    { name: "Team", email: "team@example.com", passkeys: [aKey] },
+    { id: "bart", name: "Bart", email: "bart@example.com", passkeys: [bKey] },
+  ];
+  const prod = app("http://localhost:3000", { users }, [], db);
+
+  // No id configured: signs in as the existing user with that email.
+  assert.equal((await prod.signIn(a)).status, 200);
+  assert.equal((await prod.session())?.user.id, "existing-1");
+  assert.equal(db.session.length, 1);
+
+  // Configured id, not in the database yet: created with that id, once.
+  assert.equal((await prod.signIn(b)).status, 200);
+  assert.equal((await prod.session())?.user.id, "bart");
+  assert.equal((await prod.signIn(b)).status, 200);
+  assert.deepEqual(
+    db.user.map((u) => u.id),
+    ["existing-1", "bart"],
+  );
+
+  // The session lives in the database: deleting it there signs you out.
+  db.session.length = 0;
+  assert.equal(await prod.me(), null);
 });
 
 test("rejects malformed config", () => {
